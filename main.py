@@ -1,5 +1,6 @@
 import openai
 import os
+import conversation
 
 # Put anything you want in `API key`
 openai.api_key = 'Free the models'
@@ -9,7 +10,7 @@ debug = False
 maintain_state = False
 
 
-def parse(message):
+def strip_keywords(message):
     stopwords = ['<|SYSTEM|>', '<|USER|>', '<|ASSISTANT|>', '<|endoftext|>']
 
     if not debug:
@@ -18,12 +19,24 @@ def parse(message):
 
     return message
 
+def remove_original_message(original_message, new_message):
+    message = new_message.replace(original_message, '')
+    return message
+
 
 def trim(original_message, new_message):
-    stopwords = ['<|SYSTEM|>', '<|USER|>', '<|ASSISTANT|>', '<|endoftext|>']
+    stopwords = ['<|SYSTEM|>', '<|USER|>', '<|ASSISTANT|>', '<|endoftext|>', 'Human: ', 'AI: ']
+
+    if debug:
+        print("-------------TRIM - PRE TRIM-------------")
+        print(new_message)
 
     message = new_message.replace(original_message, '')
     message = strip_after(message, stopwords)
+    if debug:
+        print("-------------TRIM - POST TRIM-------------")
+        print(message)
+        print("-------------TRIM - END-------------")
     message = original_message + message
 
     return message
@@ -38,24 +51,36 @@ def strip_after(string, words):
   return string
 
 
+def load_outside_context():
+    # Not Implemented
+    return ""
+
+
 def chat():
     system_prompt = "<|SYSTEM|>The following is a conversation with an AI assistant. The assistant is helpful, " \
                     "creative, clever, and very friendly."
     opening_text = "Please ask a question about NIST"
-    combined_prompt = ""
+    conversation_history = conversation.Conversation()
 
     while True:
         question = input(opening_text + ": ")
-        # local_file_location = input("Please enter the location of a file that you would like to ")
 
-        if not maintain_state or combined_prompt == "":
-            combined_prompt = system_prompt + "\n<|ASSISTANT|>AI: " + opening_text + "\n<|USER|>Human: "
+        if not maintain_state or conversation_history.is_empty():
+            conversation_history.clear()
+            conversation_history.add_message("System", system_prompt)
 
-        combined_prompt += question + "\n<|ASSISTANT|>AI:"
+        load_outside_context()
+
+        conversation_history.add_message("AI", strip_keywords(opening_text))
+        conversation_history.add_message("Human", strip_keywords(question))
+
+        conversation_history.add_message("AI", "AI: ")
+
+        starting_message = conversation_history.render_messages()
 
         response = openai.Completion.create(
             model="stablelm-3b",
-            prompt=combined_prompt,
+            prompt=starting_message,
             temperature=0.9,
             max_tokens=150,
             top_p=1,
@@ -65,20 +90,10 @@ def chat():
         )
 
         response_text = response.choices[0].text
+        new_message = remove_original_message(starting_message, response_text)
 
-        if maintain_state:
-            combined_prompt = response_text
-
-            if debug:
-                print("-------------STATE START-------------")
-                print(combined_prompt)
-                print("-------------STATE END-------------")
-
-        parsed_text = parse(response_text)
-        parsed_prompt = parse(combined_prompt)
-        trimmed_text = trim(parsed_prompt, parsed_text)
-
-        print(trimmed_text)
+        conversation_history.append_to_last_message("AI", new_message)
+        print(strip_keywords(new_message))
 
 
 if __name__ == '__main__':
