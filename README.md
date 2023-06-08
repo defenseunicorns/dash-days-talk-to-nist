@@ -1,4 +1,5 @@
 # Getting Started
+* Set the env variable `REMOTE_API_URL` to your remote api `Ex: https://api.example.com`
 * `pip install -r requirements.txt`
 * `python main.py`
 * Enter in a question
