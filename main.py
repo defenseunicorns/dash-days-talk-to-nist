@@ -5,8 +5,8 @@ import os
 openai.api_key = 'Free the models'
 # Point to your own url
 openai.api_base = os.environ.get('REMOTE_API_URL')
-debug = True
-maintain_state = True
+debug = False
+maintain_state = False
 
 
 def parse(message):
