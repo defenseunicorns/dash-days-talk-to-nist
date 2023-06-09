@@ -61,6 +61,7 @@ def chat():
     opening_text = "Please ask a question about NIST"
     conversation_history = conversation.Conversation()
     doc_store = DocumentStore()
+    doc_store.load_pdf("./data/")
 
     while True:
         question = input(opening_text + ": ")
@@ -69,7 +70,7 @@ def chat():
             conversation_history.clear()
             conversation_history.add_message("System", system_prompt)
 
-        load_outside_context(doc_store, question)
+        outside_context = load_outside_context(doc_store, question)
 
         conversation_history.add_message("AI", strip_keywords(opening_text))
         conversation_history.add_message("Human", strip_keywords(question))
@@ -78,9 +79,11 @@ def chat():
 
         starting_message = conversation_history.render_messages()
 
+        compound_message = outside_context + starting_message
+
         response = openai.Completion.create(
             model="stablelm-3b",
-            prompt=starting_message,
+            prompt=compound_message,
             temperature=0.9,
             max_tokens=150,
             top_p=1,
