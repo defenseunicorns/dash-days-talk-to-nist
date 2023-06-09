@@ -24,22 +24,20 @@ def remove_original_message(original_message, new_message):
     return message
 
 
-def trim(original_message, new_message):
-    stopwords = ['<|SYSTEM|>', '<|USER|>', '<|ASSISTANT|>', '<|endoftext|>', 'Human: ', 'AI: ']
+def trim(new_message):
+    stopwords = ['<|SYSTEM|>', '<|USER|>', '<|ASSISTANT|>', '<|endoftext|>', 'Human:', 'AI:']
 
-    if debug:
-        print("-------------TRIM - PRE TRIM-------------")
-        print(new_message)
+    earliest_ocurrence_index = len(new_message)
 
-    message = new_message.replace(original_message, '')
-    message = strip_after(message, stopwords)
-    if debug:
-        print("-------------TRIM - POST TRIM-------------")
-        print(message)
-        print("-------------TRIM - END-------------")
-    message = original_message + message
+    for word in stopwords:
+        index = new_message.find(word)
+        if index != -1 and index < earliest_ocurrence_index:
+            earliest_ocurrence_index = index
 
-    return message
+    if earliest_ocurrence_index != -1:
+        return new_message[:earliest_ocurrence_index].strip()
+
+    return new_message.strip()
 
 
 def strip_after(string, words):
@@ -74,7 +72,7 @@ def chat():
         conversation_history.add_message("AI", strip_keywords(opening_text))
         conversation_history.add_message("Human", strip_keywords(question))
 
-        conversation_history.add_message("AI", "AI: ")
+        conversation_history.add_message("AI", "")
 
         starting_message = conversation_history.render_messages()
 
@@ -91,9 +89,10 @@ def chat():
 
         response_text = response.choices[0].text
         new_message = remove_original_message(starting_message, response_text)
+        new_message = trim(new_message)
 
         conversation_history.append_to_last_message("AI", new_message)
-        print(strip_keywords(new_message))
+        print("AI: " + strip_keywords(new_message))
 
 
 if __name__ == '__main__':
