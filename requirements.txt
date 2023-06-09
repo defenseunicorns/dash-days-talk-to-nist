@@ -23,3 +23,5 @@ pypdf
 pytesseract
 pdfminer.six
 pyyaml
+llama_index
+weaviate

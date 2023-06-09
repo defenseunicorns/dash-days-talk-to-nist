@@ -1,6 +1,7 @@
 import openai
 import os
 import conversation
+from document_store import DocumentStore
 
 # Put anything you want in `API key`
 openai.api_key = 'Free the models'
@@ -49,9 +50,9 @@ def strip_after(string, words):
   return string
 
 
-def load_outside_context():
+def load_outside_context(doc_store, question):
     # Not Implemented
-    return ""
+    return doc_store.query(question)
 
 
 def chat():
@@ -59,6 +60,7 @@ def chat():
                     "creative, clever, and very friendly."
     opening_text = "Please ask a question about NIST"
     conversation_history = conversation.Conversation()
+    doc_store = DocumentStore()
 
     while True:
         question = input(opening_text + ": ")
@@ -67,7 +69,7 @@ def chat():
             conversation_history.clear()
             conversation_history.add_message("System", system_prompt)
 
-        load_outside_context()
+        load_outside_context(doc_store, question)
 
         conversation_history.add_message("AI", strip_keywords(opening_text))
         conversation_history.add_message("Human", strip_keywords(question))
