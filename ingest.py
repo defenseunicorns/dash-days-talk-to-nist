@@ -3,6 +3,8 @@ import os
 import time
 from typing import List
 
+from langchain import OpenAI, VectorDBQA
+from langchain.chains import RetrievalQA
 from langchain.docstore.document import Document
 from langchain.document_loaders import (CSVLoader, Docx2txtLoader, PyPDFLoader,
                                         UnstructuredFileLoader,
@@ -12,57 +14,17 @@ from langchain.document_loaders import (CSVLoader, Docx2txtLoader, PyPDFLoader,
 from langchain.text_splitter import TokenTextSplitter
 from langchain.vectorstores import Weaviate
 
+# Chroma
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import Chroma
+from langchain.document_loaders import TextLoader
 
 class Ingest:
-    schema = {
-        "classes": [
-            {
-                "class": "TalkToNist",
-                "description": "A written paragraph",
-                "vectorizer": "text2vec-transformers",
-                "moduleConfig": {
-                    "text2vec-openai": {
-                        "model": "ada",
-                        "modelVersion": "002",
-                        "type": "text"
-                    }
-                },
-                "properties": [
-                    {
-                        "dataType": ["text"],
-                        "description": "The content of the paragraph",
-                        "moduleConfig": {
-                            "text2vec-transformers": {
-                                "skip": False,
-                                "vectorizePropertyName": False
-                            }
-                        },
-                        "name": "content",
-                    },
-                    {
-                        "dataType": ["text"],
-                        "description": "The source of the paragraph",
-                        "moduleConfig": {
-                            "text2vec-transformers": {
-                                "skip": False,
-                                "vectorizePropertyName": False
-                            }
-                        },
-                        "name": "source",
-                    },
-                ],
-            },
-        ]
-    }
-
-    def __init__(self, index_name, client, embeddings):
+    def __init__(self, index_name, client, collection):
         self.index_name = index_name
         self.client = client
-
-        if not self.client.schema.contains(self.schema):
-            self.client.schema.create(self.schema)
-
-        self.vectordb = Weaviate(self.client, self.index_name, "content", embedding=embeddings)
+        self.collection = collection
 
     def clean_string(self, text):
         # Split the string by spaces.
@@ -117,10 +79,9 @@ class Ingest:
                     t.page_content = clean
             contents = [d.page_content for d in texts]
             metadatas = [d.metadata for d in texts]
-            self.vectordb.add_texts(
-                texts=contents,
-                metadatas=metadatas,
-            )
+            ids = [str(idx) for idx, d in enumerate(texts)]
+            self.collection.add(documents=contents, metadatas=metadatas, ids=ids)
+            self.client.persist()
             # split and load into weaviate
             print(f"Found {len(data)} parts in file {file_path}")
         except Exception as e:

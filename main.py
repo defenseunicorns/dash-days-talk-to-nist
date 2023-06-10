@@ -93,7 +93,8 @@ def chat():
         )
 
         response_text = response.choices[0].text
-        new_message = remove_original_message(starting_message, response_text)
+        new_message = remove_original_message(outside_context, response_text)
+        new_message = remove_original_message(starting_message, new_message)
         new_message = trim(new_message)
 
         conversation_history.append_to_last_message("AI", new_message)

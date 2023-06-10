@@ -1,11 +1,10 @@
 import os
 
+# Chroma
+import chromadb
 import openai
-import weaviate
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Weaviate
-from llama_index import StorageContext, VectorStoreIndex
-from llama_index.vector_stores import WeaviateVectorStore
+from chromadb import Settings
+from transformers import BartTokenizer, BartForConditionalGeneration
 
 import ingest
 
@@ -15,22 +14,48 @@ class DocumentStore:
         self.index_name = "TalkToNist"
         openai.api_key = 'Free the models'
         openai.api_base = os.environ.get('REMOTE_API_URL')
-        self.client = weaviate.Client(url=os.environ.get('WEAVIATE_API_URL'),
-                                      additional_headers={
-                                          'X-OpenAI-Api-Key': openai.api_key
-                                      })
-        self.embeddings = OpenAIEmbeddings(openai_api_key="foobar",
-                                           openai_api_base=os.environ.get('REMOTE_API_URL'),
-                                           model="text-embedding-ada-002")
-        self.vectordb = Weaviate(self.client, self.index_name, "content", embedding=self.embeddings)
-        self.weaviate_store = WeaviateVectorStore(weaviate_client=self.client)
-        self.ingestor = ingest.Ingest(self.index_name, self.client, self.embeddings)
+        self.client = chromadb.Client(Settings(chroma_db_impl='duckdb+parquet', persist_directory="db"))
+        self.load_required = not self.client.get_collection(name="TalkToNist")
+        self.collection = self.client.get_or_create_collection(name="TalkToNist")
+        self.ingestor = ingest.Ingest(self.index_name, self.client, self.collection)
+        self.summary_model_name = 'facebook/bart-large-cnn'
+        self.summary_tokenizer = BartTokenizer.from_pretrained(self.summary_model_name)
+        self.summary_model = BartForConditionalGeneration.from_pretrained(self.summary_model_name)
+        # For the sliding window
+        self.chunk_size = 200
+        self.overlap_size = 50
 
     def query(self, query_text):
-        storage_context = StorageContext.from_defaults(vector_store=self.weaviate_store)
-        index = VectorStoreIndex.from_vector_store(self.weaviate_store, storage_context=storage_context)
-        query_engine = index.as_query_engine()
-        return query_engine.query(query_text)
+        results = self.collection.query(
+            query_texts=[query_text],
+            n_results=3
+        )
+
+        docs = [t for t in results['documents'][0]]
+        combined_document = ' '.join(docs)
+
+        # Split the combined document into overlapping chunks
+        chunks = self.chunk_text(combined_document, self.chunk_size, self.overlap_size)
+        summaries = [self.summarize(chunk) for chunk in chunks]
+        combined_summary = ' '.join(summaries[0])
+
+        return combined_summary
 
     def load_pdf(self, path):
-        ingest.load_data(self.ingestor, path)
+        if self.load_required:
+            ingest.load_data(self.ingestor, path)
+
+    # Function for summarization
+    def summarize(self, document, size_multiplier=7):
+        inputs = self.summary_tokenizer(document, return_tensors='pt', max_length=1024, truncation=True)
+        summary_ids = self.summary_model.generate(inputs['input_ids'], num_beams=4, min_length=30, max_length=size_multiplier * len(document.split()),
+                                     early_stopping=True)
+        return [self.summary_tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=False) for g in summary_ids]
+
+    def chunk_text(self, text, chunk_size, overlap_size):
+        tokens = text.split(' ')
+        chunks = []
+        for i in range(0, len(tokens), chunk_size - overlap_size):
+            chunk = ' '.join(tokens[i:i + chunk_size])
+            chunks.append(chunk)
+        return chunks
