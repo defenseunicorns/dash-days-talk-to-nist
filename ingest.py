@@ -3,8 +3,6 @@ import os
 import time
 from typing import List
 
-from langchain import OpenAI, VectorDBQA
-from langchain.chains import RetrievalQA
 from langchain.docstore.document import Document
 from langchain.document_loaders import (CSVLoader, Docx2txtLoader, PyPDFLoader,
                                         UnstructuredFileLoader,
@@ -12,13 +10,9 @@ from langchain.document_loaders import (CSVLoader, Docx2txtLoader, PyPDFLoader,
                                         UnstructuredMarkdownLoader,
                                         UnstructuredPowerPointLoader)
 from langchain.text_splitter import TokenTextSplitter
-from langchain.vectorstores import Weaviate
+
 
 # Chroma
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain.document_loaders import TextLoader
 
 class Ingest:
     def __init__(self, index_name, client, collection):
@@ -82,7 +76,7 @@ class Ingest:
             ids = [str(idx) for idx, d in enumerate(texts)]
             self.collection.add(documents=contents, metadatas=metadatas, ids=ids)
             self.client.persist()
-            # split and load into weaviate
+            # split and load into vector db
             print(f"Found {len(data)} parts in file {file_path}")
         except Exception as e:
             print(f"process_file: Error parsing file {file_path}.  {e}")

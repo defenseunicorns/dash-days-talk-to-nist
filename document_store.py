@@ -37,9 +37,16 @@ class DocumentStore:
         # Split the combined document into overlapping chunks
         chunks = self.chunk_text(combined_document, self.chunk_size, self.overlap_size)
         summaries = [self.summarize(chunk) for chunk in chunks]
-        combined_summary = ' '.join(summaries[0])
+        flat_summaries = self.flat_map_summaries(chunks, summaries)
+        combined_summary = ' '.join(flat_summaries)
 
         return combined_summary
+
+    def flat_map_summaries(self, chunks, summaries):
+        flat_summaries = []
+        for chunk, summary in zip(chunks, summaries):
+            flat_summaries.extend(summary)
+        return flat_summaries
 
     def load_pdf(self, path):
         if self.load_required:

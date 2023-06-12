@@ -58,7 +58,7 @@ def load_outside_context(doc_store, question):
 def chat():
     system_prompt = "<|SYSTEM|>The following is a conversation with an AI assistant. The assistant is helpful, " \
                     "creative, clever, and very friendly."
-    opening_text = "Please ask a question about NIST"
+    opening_text = "Please ask a question about NIST 800.53"
     conversation_history = conversation.Conversation()
     doc_store = DocumentStore()
     doc_store.load_pdf("./data/")

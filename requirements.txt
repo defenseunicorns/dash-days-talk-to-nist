@@ -13,7 +13,6 @@ ipykernel
 textract
 tiktoken
 transformers
-weaviate-client
 GitPython
 google-api-python-client
 google-auth-httplib2
